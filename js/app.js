@@ -8,7 +8,6 @@
 
   const content = document.getElementById('app-content');
   const titleEl = document.getElementById('app-title');
-  const backBtn = document.getElementById('btn-back');
 
   function navigate(hash) {
     location.hash = hash;
@@ -22,7 +21,6 @@
 
   function handleRoute() {
     const { name, params } = getRoute();
-    backBtn.hidden = name === 'recipes';
     titleEl.textContent = getTitle(name);
 
     $$('.nav-link').forEach(el => {
@@ -57,8 +55,6 @@
 
   window.addEventListener('hashchange', handleRoute);
   window.addEventListener('load', handleRoute);
-
-  backBtn.addEventListener('click', () => navigate('#/recipes'));
 
   /* ============ VIEWS ============ */
 
