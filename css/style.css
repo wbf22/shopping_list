@@ -747,13 +747,10 @@ input, select, textarea { font: inherit; color: var(--text); }
 
 @media (min-width: 1024px) {
   #app-nav {
-    position: static;
     height: auto;
-    border-top: none;
-    border-bottom: 1px solid var(--border);
     justify-content: center;
     gap: 4px;
-    padding: 0 16px;
+    padding: 8px 16px;
   }
 
   .nav-link {
@@ -761,16 +758,12 @@ input, select, textarea { font: inherit; color: var(--text); }
     gap: 6px;
     font-size: .85rem;
     padding: 12px 16px;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
   }
 
   .nav-link.active {
-    border-bottom-color: var(--primary);
-  }
-
-  #app-content {
-    padding-bottom: 0;
+    color: var(--primary);
+    background: var(--primary-light);
+    border-radius: var(--radius-sm);
   }
 
   .recipes-grid {
@@ -778,6 +771,6 @@ input, select, textarea { font: inherit; color: var(--text); }
   }
 
   .fab {
-    bottom: 20px;
+    bottom: calc(var(--nav-h) + 20px);
   }
 }
