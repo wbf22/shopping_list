@@ -48,7 +48,8 @@
       'store-new': 'New Store',
       'store-edit': 'Edit Store',
       'store-prices': 'Store Prices',
-      export: 'Data'
+      export: 'Data',
+      import: 'Import Data'
     };
     return map[name] || 'ShopList';
   }
@@ -531,8 +532,12 @@
     return (
       '<div class="export-section">' +
       '<h2>Export</h2>' +
-      '<p>Download all your data as a single markdown file.</p>' +
-      '<button class="btn btn-primary" data-action="export-data">Export All Data</button>' +
+      '<p>Download or share your data as a single markdown file.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn-primary" data-action="export-data">Download</button>' +
+      '<button class="btn btn-secondary" data-action="share-data">Share Link</button>' +
+      '<button class="btn btn-secondary" data-action="copy-link">Copy Link</button>' +
+      '</div>' +
       '<h2>Import</h2>' +
       '<p>Import data from a previously exported markdown file. This will replace all current data.</p>' +
       '<input type="file" accept=".md,.markdown,.txt" id="import-file" style="margin-bottom:12px">' +
@@ -540,6 +545,52 @@
       '</div>'
     );
   };
+
+  /* ----- IMPORT FROM LINK ----- */
+
+  views.import = function (params) {
+    if (!params.id) {
+      navigate('#/export');
+      return '';
+    }
+    setTimeout(function () {
+      processImportLink(params.id);
+    }, 50);
+    return '<div class="empty-state"><p>Processing share link...</p></div>';
+  };
+
+  function processImportLink(data) {
+    decodeShareData(data).then(function (md) {
+      const parsed = parseMarkdown(md);
+      showImportPreview(parsed);
+    }).catch(function (err) {
+      content.innerHTML = '<div class="empty-state"><p>Failed to import: ' + esc(err.message) + '</p></div>';
+    });
+  }
+
+  function showImportPreview(data) {
+    const recipeCount = data.recipes.length;
+    const storeCount = data.stores.length;
+    const priceCount = data.storePrices.length;
+    const listCount = data.shoppingLists.length;
+
+    content.innerHTML =
+      '<div class="export-section">' +
+      '<h2>Import Preview</h2>' +
+      '<div class="import-preview" id="import-preview">' +
+      '<ul>' +
+      '<li>' + recipeCount + ' recipe' + (recipeCount !== 1 ? 's' : '') + '</li>' +
+      '<li>' + storeCount + ' store' + (storeCount !== 1 ? 's' : '') + '</li>' +
+      '<li>' + priceCount + ' store price' + (priceCount !== 1 ? 's' : '') + '</li>' +
+      '<li>' + listCount + ' shopping list' + (listCount !== 1 ? 's' : '') + '</li>' +
+      '</ul>' +
+      '<button class="btn btn-primary btn-block" data-action="confirm-import" style="margin-top:12px">Confirm Import</button>' +
+      '</div>' +
+      '</div>';
+
+    const preview = document.getElementById('import-preview');
+    if (preview) preview._importData = data;
+  }
 
   /* ============ EVENT DELEGATION ============ */
 
@@ -642,6 +693,25 @@
 
       case 'export-data':
         downloadMarkdown();
+        break;
+
+      case 'share-data':
+        shareMarkdown().catch(function () {
+          alert('Could not share. Try Copy Link instead.');
+        });
+        break;
+
+      case 'copy-link':
+        copyShareLink().then(function () {
+          const btn = document.querySelector('[data-action="copy-link"]');
+          if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(function () { btn.textContent = orig; }, 2000);
+          }
+        }).catch(function () {
+          alert('Could not copy link.');
+        });
         break;
 
       case 'confirm-import':
@@ -805,25 +875,7 @@
     if (!file) return;
 
     readMarkdownFile(file).then(data => {
-      const preview = document.getElementById('import-preview');
-      const recipeCount = data.recipes.length;
-      const storeCount = data.stores.length;
-      const priceCount = data.storePrices.length;
-      const listCount = data.shoppingLists.length;
-
-      preview.innerHTML =
-        '<div class="import-preview">' +
-        '<h3>Import Preview</h3>' +
-        '<ul>' +
-        '<li>' + recipeCount + ' recipe' + (recipeCount !== 1 ? 's' : '') + '</li>' +
-        '<li>' + storeCount + ' store' + (storeCount !== 1 ? 's' : '') + '</li>' +
-        '<li>' + priceCount + ' store price' + (priceCount !== 1 ? 's' : '') + '</li>' +
-        '<li>' + listCount + ' shopping list' + (listCount !== 1 ? 's' : '') + '</li>' +
-        '</ul>' +
-        '<button class="btn btn-primary btn-block" data-action="confirm-import" style="margin-top:12px">Confirm Import</button>' +
-        '</div>';
-
-      preview._importData = data;
+      showImportPreview(data);
     }).catch(err => {
       alert(err.message);
     });
@@ -837,8 +889,9 @@
 
     const data = preview._importData;
     saveAll(data);
-    preview.innerHTML = '<p style="color:var(--success);font-weight:600">Import successful!</p>';
     preview._importData = null;
+    preview.innerHTML = '<p style="color:var(--success);font-weight:600">Import successful! Redirecting...</p>';
+    setTimeout(function () { navigate('#/recipes'); }, 1200);
   }
 
   /* ============ HELPERS ============ */

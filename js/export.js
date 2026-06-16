@@ -190,6 +190,108 @@ function downloadMarkdown() {
   URL.revokeObjectURL(url);
 }
 
+async function streamToBuffer(readable) {
+  const reader = readable.getReader();
+  const chunks = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
+  return buf;
+}
+
+function bufToB64(buf) {
+  let bin = '';
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  return btoa(bin);
+}
+
+function b64ToBuf(b64) {
+  const bin = atob(b64);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf;
+}
+
+function b64urlEncode(b64) {
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlDecode(b64url) {
+  let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  return b64;
+}
+
+function encodeShareLink() {
+  const md = exportToMarkdown();
+  const bytes = new TextEncoder().encode(md);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const b64url = b64urlEncode(btoa(bin));
+  return location.origin + location.pathname.replace(/\/$/, '') + '/#/import/u' + b64url;
+}
+
+async function decodeShareData(encoded) {
+  const prefix = encoded[0];
+  const buf = b64ToBuf(b64urlDecode(encoded.slice(1)));
+
+  if (prefix === 'c' && typeof DecompressionStream !== 'undefined') {
+    try {
+      const ds = new DecompressionStream('gzip');
+      ds.writable.getWriter().write(buf).then(w => w.close());
+      const decompressed = await streamToBuffer(ds.readable);
+      return new TextDecoder().decode(decompressed);
+    } catch {}
+  }
+
+  return new TextDecoder().decode(buf);
+}
+
+function fallbackCopy(url) {
+  const ta = document.createElement('textarea');
+  ta.value = url;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+function copyShareLink() {
+  const url = encodeShareLink();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(url).then(function () {
+      return url;
+    }).catch(function () {
+      fallbackCopy(url);
+      return url;
+    });
+  }
+  fallbackCopy(url);
+  return Promise.resolve(url);
+}
+
+function shareMarkdown() {
+  const url = encodeShareLink();
+  if (navigator.share) {
+    try {
+      return navigator.share({ text: url, title: 'ShopList Data' }).catch(function () {
+        return copyShareLink();
+      });
+    } catch {
+      return copyShareLink();
+    }
+  }
+  return copyShareLink();
+}
+
 function readMarkdownFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
